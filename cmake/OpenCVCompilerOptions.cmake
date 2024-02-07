@@ -485,3 +485,8 @@ if(CMAKE_GENERATOR MATCHES "Visual Studio" AND CMAKE_CXX_COMPILER_ID MATCHES "MS
     endif()
   endif()
 endif()
+if("${CROSS_COMPILE}" STREQUAL "arm-cvitek-linux-uclibcgnueabihf-")
+  foreach(flags CMAKE_CXX_FLAGS_RELEASE CMAKE_C_FLAGS_RELEASE)
+    string(REPLACE "-O3" "-O2 -Os" ${flags} "${${flags}}")
+  endforeach()
+endif()
