@@ -195,6 +195,7 @@ private:
 
     std::vector<ForThread> m_threads;
     size_t m_num_threads;
+    size_t m_num_created_threads;
 
     pthread_mutex_t m_manager_task_mutex;
     pthread_cond_t  m_cond_thread_task_complete;
@@ -343,7 +344,7 @@ void ForThread::thread_body()
     pthread_mutex_unlock(&m_thread_mutex);
 }
 
-ThreadManager::ThreadManager(): m_num_threads(0), m_task_complete(false), m_num_of_completed_tasks(0), m_pool_state(eTMNotInited)
+ThreadManager::ThreadManager(): m_num_threads(0), m_num_created_threads(0), m_task_complete(false), m_num_of_completed_tasks(0), m_pool_state(eTMNotInited)
 {
     int res = 0;
 
@@ -413,7 +414,7 @@ void ThreadManager::run(const cv::Range& range, const cv::ParallelLoopBody& body
 
                 m_work_load.set(range, body, cvCeil(nstripes));
 
-                for(size_t i = 0; i < m_threads.size(); ++i)
+                for(size_t i = 0; i < m_num_created_threads; ++i)
                 {
                     m_threads[i].run();
                 }
@@ -453,7 +454,7 @@ void ThreadManager::notify_complete()
 
     unsigned int comp = CV_XADD(&m_num_of_completed_tasks, 1);
 
-    if(comp == (m_num_threads - 1))
+    if(comp == (m_num_created_threads - 1))
     {
         pthread_mutex_lock(&m_manager_task_mutex);
 
@@ -476,7 +477,13 @@ bool ThreadManager::initPool()
 
     for(size_t i = 0; i < m_threads.size(); ++i)
     {
-        res |= m_threads[i].init(i, this);
+        int res_init = m_threads[i].init(i, this);
+        // Stop at first failure
+        if (!res_init)
+            break;
+
+        m_num_created_threads++;
+        res |= res_init;
     }
 
     if(res)
